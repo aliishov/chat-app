@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ChatDemo
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chat_db
+    username: postgres
+    password: postgres
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+#        dialect: org.hibernate.dialect.PostgreSQLDialect
+        show_sql: true
+        format_sql: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: alishov7394@gmail.com
+    password: rceo uwdx ncfv ocvw
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: veryStrongSecretKeyveryStrongSecretKeyveryStrongSecretKeyveryStrongSecretKeyveryStrongSecretKeyveryStrongSecretKey
+  expiration: 600000
+  refresh:
+    expiration: 60000000
+
+logging:
+  level:
+    org.springframework.mail: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG
+    org.springframework.data.redis: DEBUG
+    io.lettuce.core: DEBUG

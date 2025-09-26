@@ -1,0 +1,179 @@
+package com.raul.chat.services.auth;
+
+import com.raul.chat.models.user.JwtToken;
+import com.raul.chat.models.user.TokenType;
+import com.raul.chat.models.user.User;
+import com.raul.chat.repositories.auth.JwtTokenRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.UUID;
+import java.util.Date;
+import java.util.List;
+import java.util.function.Function;
+
+@Service
+@RequiredArgsConstructor
+public class JwtService {
+
+    @Value("${jwt.expiration}")
+    private Long jwtExpiration;
+
+    @Value("${jwt.refresh.expiration}")
+    private Long refreshJwtExpiration;
+
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    private final JwtTokenRepository jwtTokenRepository;
+
+    public String generateToken(User user) {
+        return generateToken(new HashMap<>(), user);
+    }
+
+    private String generateToken(Map<String, Object> claims, User user) {
+
+        var authorities = user.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        claims.put("userId", user.getId());
+        claims.put("firstName", user.getFirstName());
+        claims.put("lastName", user.getLastName());
+        claims.put("role", authorities);
+        claims.put("authenticated", user.getIsAuthenticated());
+        claims.put("enabled", user.isEnabled());
+
+        return buildToken(claims, user);
+    }
+
+    private String buildToken(Map<String, Object> extraClaims,
+                              UserDetails userDetails) {
+        UUID userId = (UUID) extraClaims.get("userId");
+
+        revokeAllUserTokens(userId, TokenType.ACCESS_TOKEN);
+
+        Date expirationDateTime = new Date(System.currentTimeMillis() + jwtExpiration);
+
+        String token = Jwts
+                .builder()
+                .claims()
+                .add(extraClaims)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(expirationDateTime)
+                .and()
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
+                .compact();
+
+        saveToken(userId, token, TokenType.ACCESS_TOKEN, expirationDateTime);
+
+        return token;
+    }
+
+    public String generateRefreshToken(User user) {
+
+        revokeAllUserTokens(user.getId(), TokenType.REFRESH_TOKEN);
+
+        Date expirationDateTime = new Date(System.currentTimeMillis() + refreshJwtExpiration);
+
+        String refreshToken = Jwts.builder()
+                .subject(user.getEmail())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(expirationDateTime)
+                .signWith(getSignInKey())
+                .compact();
+
+        saveToken(user.getId(), refreshToken, TokenType.REFRESH_TOKEN, expirationDateTime);
+
+        return refreshToken;
+    }
+
+    private SecretKey getSignInKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private LocalDateTime convertToLocalDateTime(Date date) {
+        return date.toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
+    }
+
+    private void saveToken(UUID userId, String token, TokenType tokenType, Date expiration) {
+        JwtToken jwtToken = JwtToken.builder()
+                .token(token)
+                .tokenType(tokenType)
+                .createdAt(LocalDateTime.now())
+                .expiresAt(convertToLocalDateTime(expiration))
+                .userId(userId)
+                .isRevoked(false)
+                .build();
+
+        jwtTokenRepository.save(jwtToken);
+    }
+
+    public void revokeAllUserTokens(UUID userId, TokenType tokenType) {
+        List<JwtToken> validUserTokens = jwtTokenRepository.findAllValidTokensByUser(userId, LocalDateTime.now(),
+                tokenType.name());
+
+        if (validUserTokens.isEmpty()) return;
+
+        validUserTokens.forEach(token -> {
+            token.setExpiresAt(LocalDateTime.now().minusMinutes(10));
+            token.setIsRevoked(true);
+        });
+
+        jwtTokenRepository.saveAll(validUserTokens);
+    }
+
+    public Boolean isTokenValid(String token, UserDetails userDetails) {
+        return jwtTokenRepository.findByToken(token)
+                .filter(t -> !t.getIsRevoked())
+                .filter(t -> !isTokenExpired(token))
+                .map(t -> extractUsername(token).equals(userDetails.getUsername()))
+                .orElse(false);
+    }
+
+    public Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    private <T> T extractClaim(String token, Function<Claims, T> claimResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSignInKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public UUID extractUserId(String token) {
+        return extractClaim(token, claims -> UUID.fromString(claims.get("userId", String.class)));
+    }
+}
