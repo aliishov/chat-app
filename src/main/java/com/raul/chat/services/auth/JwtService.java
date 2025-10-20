@@ -1,31 +1,29 @@
 package com.raul.chat.services.auth;
 
-import com.raul.chat.models.user.JwtToken;
 import com.raul.chat.models.user.TokenType;
 import com.raul.chat.models.user.User;
-import com.raul.chat.repositories.auth.JwtTokenRepository;
+import com.raul.chat.services.redis.JwtTokenTrackService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.Date;
-import java.util.List;
 import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JwtService {
 
     @Value("${jwt.expiration}")
@@ -37,7 +35,7 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    private final JwtTokenRepository jwtTokenRepository;
+    private final JwtTokenTrackService jwtTokenTrackService;
 
     public String generateToken(User user) {
         return generateToken(new HashMap<>(), user);
@@ -79,7 +77,7 @@ public class JwtService {
                 .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
 
-        saveToken(userId, token, TokenType.ACCESS_TOKEN, expirationDateTime);
+        saveToken(userId, token, TokenType.ACCESS_TOKEN);
 
         return token;
     }
@@ -97,7 +95,7 @@ public class JwtService {
                 .signWith(getSignInKey())
                 .compact();
 
-        saveToken(user.getId(), refreshToken, TokenType.REFRESH_TOKEN, expirationDateTime);
+        saveToken(user.getId(), refreshToken, TokenType.REFRESH_TOKEN);
 
         return refreshToken;
     }
@@ -107,45 +105,24 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    private LocalDateTime convertToLocalDateTime(Date date) {
-        return date.toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDateTime();
-    }
-
-    private void saveToken(UUID userId, String token, TokenType tokenType, Date expiration) {
-        JwtToken jwtToken = JwtToken.builder()
-                .token(token)
-                .tokenType(tokenType)
-                .createdAt(LocalDateTime.now())
-                .expiresAt(convertToLocalDateTime(expiration))
-                .userId(userId)
-                .isRevoked(false)
-                .build();
-
-        jwtTokenRepository.save(jwtToken);
+    private void saveToken(UUID userId, String token, TokenType tokenType) {
+        jwtTokenTrackService.saveToken(userId, token, tokenType);
     }
 
     public void revokeAllUserTokens(UUID userId, TokenType tokenType) {
-        List<JwtToken> validUserTokens = jwtTokenRepository.findAllValidTokensByUser(userId, LocalDateTime.now(),
-                tokenType.name());
-
-        if (validUserTokens.isEmpty()) return;
-
-        validUserTokens.forEach(token -> {
-            token.setExpiresAt(LocalDateTime.now().minusMinutes(10));
-            token.setIsRevoked(true);
-        });
-
-        jwtTokenRepository.saveAll(validUserTokens);
+        jwtTokenTrackService.revokeAllTokens(userId, tokenType);
     }
 
-    public Boolean isTokenValid(String token, UserDetails userDetails) {
-        return jwtTokenRepository.findByToken(token)
-                .filter(t -> !t.getIsRevoked())
-                .filter(t -> !isTokenExpired(token))
-                .map(t -> extractUsername(token).equals(userDetails.getUsername()))
-                .orElse(false);
+    public Boolean isTokenValid(String token, UserDetails userDetails, TokenType tokenType) {
+        String username = extractUsername(token);
+
+        if (username == null || !username.equals(userDetails.getUsername())) {
+            log.debug("Invalid token: username mismatch");
+            return false;
+        }
+
+        UUID userId = extractUserId(token);
+        return jwtTokenTrackService.isTokenValid(token, userId, tokenType);
     }
 
     public Boolean isTokenExpired(String token) {

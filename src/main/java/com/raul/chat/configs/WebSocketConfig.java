@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.raul.chat.exceptions.InvalidTokenException;
 import com.raul.chat.models.user.DeviceType;
 import com.raul.chat.models.user.Status;
+import com.raul.chat.models.user.TokenType;
 import com.raul.chat.services.auth.JwtService;
 import com.raul.chat.services.auth.UserDevicesService;
 import com.raul.chat.services.chat.PresenceService;
@@ -66,7 +67,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic", "/queue", "/user", "/chat-rooms")
                 .setTaskScheduler(taskScheduler())
-                .setHeartbeatValue(new long[]{5000, 5000});;
+                .setHeartbeatValue(new long[]{5000, 5000});
         registry.setApplicationDestinationPrefixes("/app");
         registry.setUserDestinationPrefix("/user");
     }
@@ -91,9 +92,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 UUID userId = validateToken(accessor);
                 switch (Objects.requireNonNull(accessor.getCommand())) {
                     case CONNECT:
-                        String conDeviceId = accessor.getFirstNativeHeader("deviceId");
-                        String deviceToken = accessor.getFirstNativeHeader("deviceToken");
-                        String deviceType = accessor.getFirstNativeHeader("deviceType");
+                        String conDeviceId = accessor.getFirstNativeHeader("x-device-id");
+                        String deviceToken = accessor.getFirstNativeHeader("x-device-token");
+                        String deviceType = accessor.getFirstNativeHeader("x-device-type");
 
                         assert conDeviceId != null;
                         if (!userDevicesService.isDeviceExistForUser(userId, Long.parseLong(conDeviceId))) {
@@ -173,7 +174,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             String username = jwtService.extractUsername(jwtToken);
             UUID userId = jwtService.extractUserId(jwtToken);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if (!jwtService.isTokenValid(jwtToken, userDetails)) {
+            if (!jwtService.isTokenValid(jwtToken, userDetails, TokenType.ACCESS_TOKEN)) {
                 log.warn("Invalid JWT Token for user: {}", username);
                 throw new InvalidTokenException("Invalid JWT Token provided");
             }

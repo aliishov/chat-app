@@ -2,8 +2,8 @@ package com.raul.chat.services.auth;
 
 import com.raul.chat.models.user.Status;
 import com.raul.chat.models.user.TokenType;
-import com.raul.chat.repositories.auth.JwtTokenRepository;
 import com.raul.chat.services.chat.PresenceService;
+import com.raul.chat.services.redis.JwtTokenTrackService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,17 +12,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class LogoutService implements LogoutHandler {
 
-    private final JwtTokenRepository jwtTokenRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final JwtService jwtService;
     private final PresenceService presenceService;
+    private final JwtTokenTrackService jwtTokenTrackService;
 
     @Override
     public void logout(HttpServletRequest request,
@@ -34,27 +33,14 @@ public class LogoutService implements LogoutHandler {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return;
 
         token = authHeader.substring(7);
+        UUID userId = jwtService.extractUserId(token);
 
-        jwtTokenRepository.findByToken(token).ifPresent(accessJwtToken -> {
-            UUID userId = accessJwtToken.getUserId();
+        if (userId == null) return;
 
-            accessJwtToken.setIsRevoked(true);
-            accessJwtToken.setExpiresAt(LocalDateTime.now().minusMinutes(10));
-            jwtTokenRepository.save(accessJwtToken);
+        jwtTokenTrackService.revokeAllTokens(userId, TokenType.REFRESH_TOKEN);
+        jwtTokenTrackService.revokeAllTokens(userId, TokenType.ACCESS_TOKEN);
 
-            jwtTokenRepository.findByTokenTypeAndUserIdAndIsRevoked(
-                    TokenType.REFRESH_TOKEN.name(), userId, false
-            ).ifPresent(refreshJwtToken -> {
-                refreshJwtToken.setIsRevoked(true);
-                refreshJwtToken.setExpiresAt(LocalDateTime.now().minusMinutes(10));
-                jwtTokenRepository.save(refreshJwtToken);
-            });
-
-            UUID tokenUserId = jwtService.extractUserId(token);
-            if (tokenUserId.equals(userId)) {
-                presenceService.updateUserStatus(userId, Status.OFFLINE);
-                simpMessagingTemplate.convertAndSend("/topic/online-users", tokenUserId);
-            }
-        });
+        presenceService.updateUserStatus(userId, Status.OFFLINE);
+        simpMessagingTemplate.convertAndSend("/topic/online-users", userId);
     }
 }

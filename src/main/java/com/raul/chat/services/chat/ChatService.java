@@ -1,11 +1,14 @@
 package com.raul.chat.services.chat;
 
+import com.raul.chat.dtos.auth.MessageResponseDto;
+import com.raul.chat.dtos.auth.UserDto;
 import com.raul.chat.dtos.chat.RecipientDto;
 import com.raul.chat.dtos.chat.MessageDto;
 import com.raul.chat.dtos.chat.NewGroupChatDto;
 import com.raul.chat.dtos.chat.NewMessageDto;
 import com.raul.chat.dtos.chat.UpdateMessageStatusDto;
 import com.raul.chat.dtos.chat.ChatRoomDto;
+import com.raul.chat.dtos.chat.GroupChatRoleDto;
 import com.raul.chat.models.chat.MessageRecipient;
 import com.raul.chat.models.chat.ChatRoom;
 import com.raul.chat.models.chat.Message;
@@ -18,7 +21,8 @@ import com.raul.chat.repositories.chat.ChatRoomMembershipRepository;
 import com.raul.chat.repositories.chat.ChatRoomRepository;
 import com.raul.chat.repositories.chat.MessageRepository;
 import com.raul.chat.repositories.auth.UserRepository;
-import com.raul.chat.services.chat.redis.DeliveryTrackerService;
+import com.raul.chat.services.redis.DeliveryTrackerService;
+import com.raul.chat.services.utils.UserUtils;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +30,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -45,12 +50,20 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMembershipRepository chatRoomMembershipRepository;
     private final MessageMapper  messageMapper;
-    private final SimpMessagingTemplate messagingTemplate;
     private final MembershipMapper membershipMapper;
+    private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final DeliveryTrackerService deliveryTrackerService;
+    private final UserUtils userUtils;
 
-    // TODO refactor
+    private User systemUser;
+
+    @PostConstruct
+    public void init() {
+         systemUser = userRepository.findByEmail(SYSTEM_USER_EMAIL)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+    }
+
     @Transactional
     public void sendMessage(NewMessageDto newMessageDto) {
         log.info("Sending a message to the chat");
@@ -69,10 +82,7 @@ public class ChatService {
         if (newMessageDto.chatRoomId() == null) {
             assert recipientId != null;
             recipient = userRepository.findById(recipientId)
-                .orElseThrow(() -> {
-                    log.warn("No recipient found with id {}", recipientId);
-                    return new EntityNotFoundException("Recipient not found: " + recipientId);
-                });
+                .orElseThrow(() -> userUtils.throwUserNotFoundException("ID", recipientId.toString()));
 
             chatRoom = findOrCreatePersonalChatRoom(sender, recipient);
         } else {
@@ -83,27 +93,14 @@ public class ChatService {
                 });
         }
 
-        // Create Message entity
-        Message message = Message.builder()
-                .content(newMessageDto.content())
-                .sender(sender)
-                .chatRoom(chatRoom)
-                .sentAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
         // Determine recipients
         List<User> recipients;
         if (chatRoom.getType() == ChatRoomType.PERSONAL) {
             if (recipient == null) {
                 assert recipientId != null;
                 recipient = userRepository.findById(recipientId)
-                        .orElseThrow(() -> {
-                            log.warn("No recipient found with id {}", recipientId);
-                            return new EntityNotFoundException("Recipient not found: " + recipientId);
-                        });
+                        .orElseThrow(() -> userUtils.throwUserNotFoundException("ID", recipientId.toString()));
             }
-            assert recipient != null;
             recipients = List.of(recipient);
         } else {
             recipients = chatRoomMembershipRepository.findByChatRoomId(chatRoom.getId()).stream()
@@ -112,28 +109,16 @@ public class ChatService {
                     .toList();
         }
 
-        // Create message recipients
-        List<MessageRecipient> messageRecipients = createMessageRecipients(recipients,  message);
-
-        // Save message with recipients
-        message.setRecipients(messageRecipients);
-        message = messageRepository.save(message);
-
-        // Convert entity to DTO
-        MessageDto messageDto = messageMapper.toMessageDto(message);
-
-        // Selecting the message destination
-        String destination = resolveDestination(messageDto, message.getChatRoom().getType());
-
-        // Sending the message
-        sendMessage(destination, messageDto);
-
-        // Sending notifications
-        notificationService.sendNotification(sender, messageDto, messageRecipients);
+        processSendMessage(sender, chatRoom, newMessageDto.content(), chatRoom.getType(), recipients, true);
     }
 
-    public List<MessageDto> getMessagesSince(Long chatRoomId, Long lastSeenTimestamp) {
+    public List<MessageDto> getMessagesSince(Long chatRoomId, Long lastSeenTimestamp, UUID userId) {
         log.info("Getting unread messages from the chat room {}", chatRoomId);
+
+        chatRoomMembershipRepository
+                .findByUserIdAndChatId(userId, chatRoomId)
+                .orElseThrow(() -> new IllegalArgumentException("You are not a member of this chat"));
+
         Instant since = (lastSeenTimestamp != null)
                 ? Instant.ofEpochMilli(lastSeenTimestamp)
                 : Instant.EPOCH;
@@ -158,10 +143,7 @@ public class ChatService {
         User creator = participants.stream()
                 .filter(user -> user.getId().equals(groupChatDto.creatorId()))
                 .findFirst()
-                .orElseThrow(() -> {
-                    log.warn("No creator found with id {}", groupChatDto.creatorId());
-                    return new EntityNotFoundException("Creator not found");
-                });
+                .orElseThrow(() -> userUtils.throwUserNotFoundException("ID", groupChatDto.creatorId().toString()));
 
         // Creating chat room
         ChatRoom chatRoom = ChatRoom.builder()
@@ -184,15 +166,8 @@ public class ChatService {
                 .toList();
         chatRoomMembershipRepository.saveAll(memberships);
 
-        // Creating system message
-        Message systemMessage = Message.builder()
-                .content("Group " + chatRoom.getName() + " created by "
-                        + creator.getFirstName() + " " + creator.getLastName())
-                .sender(getSystemUser())
-                .chatRoom(chatRoom)
-                .sentAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
+        String content = "Group " + chatRoom.getName() + " created by "
+                + creator.getFirstName() + " " + creator.getLastName();
 
         // Determine recipients
         List<User> recipients = chatRoomMembershipRepository.findByChatRoomId(chatRoom.getId()).stream()
@@ -200,27 +175,9 @@ public class ChatService {
                 .filter(user -> !user.getId().equals(creator.getId()))
                 .toList();
 
-        // Create message recipients
-        List<MessageRecipient> messageRecipients = createMessageRecipients(recipients, systemMessage);
+        processSendMessage(creator, finalChatRoom, content, chatRoom.getType(), recipients, true);
 
-        // Save message with recipients
-        systemMessage.setRecipients(messageRecipients);
-        systemMessage = messageRepository.save(systemMessage);
-
-        // Convert entity to DTO
-        MessageDto messageDto = messageMapper.toMessageDto(systemMessage);
-
-        // Resolving the message destination
-        String destination = resolveDestination(messageDto, ChatRoomType.GROUP);
-
-        // Sending the message
-        sendMessage(destination, messageDto);
-
-        // TODO Implement using notification Service
-        // Sending notifications
-        notificationService.sendNotification(creator, messageDto, messageRecipients);
-
-        return new ChatRoomDto(messageDto.chatRoomId(), chatRoom.getName(), participants.size(), memberships.stream()
+        return new ChatRoomDto(chatRoom.getId(), chatRoom.getName(), participants.size(), memberships.stream()
                 .map(membershipMapper::toMembershipDto).toList());
     }
 
@@ -251,7 +208,7 @@ public class ChatService {
         switch (status) {
             case DELIVERED -> {
                 recipient.setDeliveredAt(OffsetDateTime.now());
-                deliveryTrackerService.markDelivered(message.getId(), recipientId);
+                deliveryTrackerService.markAsDelivered(message.getId(), recipientId);
             }
             case READ -> recipient.setReadAt(OffsetDateTime.now());
         }
@@ -317,11 +274,6 @@ public class ChatService {
         };
     }
 
-    private User getSystemUser() {
-        return userRepository.findByEmail(SYSTEM_USER_EMAIL)
-                .orElseThrow(() -> new EntityNotFoundException("System user not found"));
-    }
-
     private void sendMessage(String destination, MessageDto messageDto) {
         try {
             log.info("Sending message to chat room {}", messageDto.chatRoomId());
@@ -330,8 +282,39 @@ public class ChatService {
                 deliveryTrackerService.trackMessage(messageDto, recipientDto.recipientId());
             }
         } catch (Exception e) {
-            log.error("Error while sending a message: {}", messageDto);
-            log.error("Failed to send message to {}: {}", destination, e.getMessage(), e);
+            log.error("Error while sending a message: {} {}", messageDto, e.getMessage(), e);
+        }
+    }
+
+    private void processSendMessage(User sender, ChatRoom chatRoom, String content, ChatRoomType chatRoomType,
+                                    List<User> recipients, boolean sendNotification) {
+        Message message = Message.builder()
+                .content(content)
+                .sender(sender)
+                .chatRoom(chatRoom)
+                .sentAt(OffsetDateTime.now())
+                .updatedAt(OffsetDateTime.now())
+                .build();
+
+        // Create message recipients
+        List<MessageRecipient> messageRecipients = createMessageRecipients(recipients,  message);
+
+        // Save message with recipients
+        message.setRecipients(messageRecipients);
+        message = messageRepository.save(message);
+
+        // Convert entity to DTO
+        MessageDto messageDto = messageMapper.toMessageDto(message);
+
+        // Selecting the message destination
+        String destination = resolveDestination(messageDto, chatRoomType);
+
+        // Sending the message
+        sendMessage(destination, messageDto);
+
+        // Sending notifications
+        if (sendNotification) {
+            notificationService.sendNotification(sender, messageDto, messageRecipients);
         }
     }
 
@@ -344,5 +327,87 @@ public class ChatService {
                         .status(MessageStatus.SENT)
                         .build())
                 .toList();
+    }
+
+    @Transactional
+    public UserDto changeUserRole(Long chatId, UUID userId, UUID adminId, GroupChatRoleDto request) {
+        log.info("Changing user role for user {}", userId);
+
+        ChatRoom chatRoom = findChatRoomById(chatId);
+
+        if (!chatRoom.getType().equals(ChatRoomType.GROUP)) {
+            throw new IllegalArgumentException("Chat room type not supported");
+        }
+
+        User updateUser = userRepository.findById(userId)
+                .orElseThrow(() -> userUtils.throwUserNotFoundException("ID", userId.toString()));
+
+        ChatRoomMembership adminMember = chatRoomMembershipRepository
+                .findByUserIdAndChatId(adminId, chatRoom.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Chat room membership not found"));
+
+        if (!adminMember.getRole().equals(MemberRole.ADMIN)) {
+            throw new IllegalArgumentException("Permission denied. Not allowed to change user role");
+        }
+
+        ChatRoomMembership chatRoomMembership = chatRoomMembershipRepository
+                .findByUserIdAndChatId(updateUser.getId(), chatRoom.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Chat room membership not found"));
+
+        chatRoomMembership.setRole(request.role());
+        chatRoomMembershipRepository.save(chatRoomMembership);
+
+        log.info("group role for user {} successfully changed", updateUser.getId());
+        return userUtils.convertToUserDto(updateUser);
+    }
+
+    @Transactional
+    public MessageResponseDto leaveGroup(Long chatId, UUID userId) {
+        log.info("Leaving group for user {}", userId);
+
+        ChatRoom chatRoom = findChatRoomById(chatId);
+
+        if (!chatRoom.getType().equals(ChatRoomType.GROUP)) {
+            throw new IllegalArgumentException("Chat room type not supported");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> userUtils.throwUserNotFoundException("ID", userId.toString()));
+
+        ChatRoomMembership membership = chatRoomMembershipRepository
+                .findByUserIdAndChatId(user.getId(), chatRoom.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Chat room membership not found"));
+
+        chatRoomMembershipRepository.delete(membership);
+
+        List<ChatRoomMembership> memberships =  chatRoomMembershipRepository.findByChatRoomId(chatRoom.getId());
+        if (membership.getRole().equals(MemberRole.ADMIN)) {
+            if (!memberships.isEmpty()) {
+                ChatRoomMembership newAdminMember = memberships.get(0);
+                newAdminMember.setRole(MemberRole.ADMIN);
+                chatRoomMembershipRepository.save(newAdminMember);
+            } else {
+                chatRoomRepository.delete(chatRoom);
+                log.info("Deleted empty chat room {}", chatRoom.getId());
+                return new MessageResponseDto("You left the group. Group deleted since no members left.");
+            }
+        }
+
+        String content = user.getFirstName() + " " + user.getLastName() + " has left the group";
+
+        // Determine recipients
+        List<User> recipients = memberships.stream()
+                .map(ChatRoomMembership::getUser)
+                .filter(usr -> !usr.getId().equals(user.getId()))
+                .toList();
+
+        processSendMessage(systemUser, chatRoom, content, chatRoom.getType(), recipients, false);
+
+        return new MessageResponseDto("You have left the group successfully");
+    }
+
+    private ChatRoom findChatRoomById(Long chatRoomId) {
+        return chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new EntityNotFoundException("Chat room not found"));
     }
 }

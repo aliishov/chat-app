@@ -1,5 +1,6 @@
 package com.raul.chat.services.auth;
 
+import com.raul.chat.models.user.TokenType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,7 +48,7 @@ public class JwtFilter extends OncePerRequestFilter {
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-            if (jwtService.isTokenValid(jwtToken, userDetails)) {
+            if (jwtService.isTokenValid(jwtToken, userDetails, TokenType.ACCESS_TOKEN)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,

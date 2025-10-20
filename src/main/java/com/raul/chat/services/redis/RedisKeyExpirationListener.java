@@ -1,4 +1,4 @@
-package com.raul.chat.services.chat.redis;
+package com.raul.chat.services.redis;
 
 import com.raul.chat.dtos.chat.MessageDto;
 import com.raul.chat.models.chat.MessageRecipient;
@@ -35,7 +35,8 @@ public class RedisKeyExpirationListener extends KeyExpirationEventMessageListene
                                       NotificationService notificationService,
                                       MessageRecipientRepository messageRecipientRepository,
                                       UserRepository userRepository,
-                                      RedisTemplate<String, Object> redisTemplate, UserUtils userUtils) {
+                                      RedisTemplate<String, Object> redisTemplate,
+                                      UserUtils userUtils) {
         super(listenerContainer);
         this.notificationService = notificationService;
         this.messageRecipientRepository = messageRecipientRepository;

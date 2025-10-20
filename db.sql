@@ -116,3 +116,5 @@ CREATE TABLE user_devices (
 );
 
 ALTER TABLE user_devices ADD COLUMN is_online BOOLEAN NOT NULL DEFAULT FALSE;
+
+DROP TABLE jwt_tokens;

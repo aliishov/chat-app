@@ -23,7 +23,7 @@ public class NotificationService {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final PresenceService presenceService;
-    private final PushNotificationService pushService;
+    private final PushNotificationService pushNotificationService;
     private final UserUtils userUtils;
 
     @Async
@@ -43,7 +43,7 @@ public class NotificationService {
                 messagingTemplate.convertAndSend(notificationDestination, notificationDto);
             } else {
                 log.info("User {} offline, send push notification", recipientId);
-                pushService.sendPush(recipientId, notificationDto);
+                pushNotificationService.sendPush(recipientId, notificationDto);
             }
         });
     }
