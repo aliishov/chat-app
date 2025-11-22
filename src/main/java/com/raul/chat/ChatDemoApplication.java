@@ -10,6 +10,4 @@ public class ChatDemoApplication {
         SpringApplication.run(ChatDemoApplication.class, args);
     }
 
-    // TODO check for checkStyle
-
 }

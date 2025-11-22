@@ -3,7 +3,9 @@ package com.raul.chat.configs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.raul.chat.repositories.auth.UserRepository;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -24,9 +26,10 @@ import org.springframework.web.filter.CommonsRequestLoggingFilter;
 @EnableScheduling
 @EnableJpaAuditing
 @EnableAsync
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AppConfig {
 
-    private final UserRepository userRepository;
+    UserRepository userRepository;
 
     @Bean
     public UserDetailsService userDetailsService() {

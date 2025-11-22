@@ -24,7 +24,9 @@ import com.raul.chat.repositories.auth.UserRepository;
 import com.raul.chat.services.redis.DeliveryTrackerService;
 import com.raul.chat.services.utils.UserUtils;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -40,23 +42,24 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ChatService {
-    private static final String GROUP_CHAT_TOPIC = "/topic/chat-room.{id}";
-    private static final String PERSONAL_CHAT_TOPIC = "/user/{id}/queue/messages";
-    private static final String SYSTEM_USER_EMAIL = "system@chat";
+    static final String GROUP_CHAT_TOPIC = "/topic/chat-room.{id}";
+    static final String PERSONAL_CHAT_TOPIC = "/user/{id}/queue/messages";
+    static final String SYSTEM_USER_EMAIL = "system@chat";
 
-    private final UserRepository userRepository;
-    private final MessageRepository messageRepository;
-    private final ChatRoomRepository chatRoomRepository;
-    private final ChatRoomMembershipRepository chatRoomMembershipRepository;
-    private final MessageMapper  messageMapper;
-    private final MembershipMapper membershipMapper;
-    private final SimpMessagingTemplate messagingTemplate;
-    private final NotificationService notificationService;
-    private final DeliveryTrackerService deliveryTrackerService;
-    private final UserUtils userUtils;
+    final UserRepository userRepository;
+    final MessageRepository messageRepository;
+    final ChatRoomRepository chatRoomRepository;
+    final ChatRoomMembershipRepository chatRoomMembershipRepository;
+    final MessageMapper  messageMapper;
+    final MembershipMapper membershipMapper;
+    final SimpMessagingTemplate messagingTemplate;
+    final NotificationService notificationService;
+    final DeliveryTrackerService deliveryTrackerService;
+    final UserUtils userUtils;
 
-    private User systemUser;
+    User systemUser;
 
     @PostConstruct
     public void init() {

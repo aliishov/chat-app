@@ -11,7 +11,9 @@ import com.raul.chat.dtos.auth.RefreshTokenRequest;
 import com.raul.chat.dtos.otp.OtpDto;
 import com.raul.chat.services.auth.AuthService;
 import jakarta.validation.Valid;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,9 +26,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Validated
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthController {
 
-    private final AuthService authService;
+    AuthService authService;
 
     @PostMapping("/register")
     public ResponseEntity<MessageResponseDto> register(@Valid @RequestBody RegisterRequestDto request) {

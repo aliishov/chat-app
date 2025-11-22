@@ -1,7 +1,9 @@
 package com.raul.chat.services.redis;
 
 import com.raul.chat.models.user.TokenType;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -14,18 +16,19 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class JwtTokenTrackService {
     @Value("${jwt.expiration}")
-    private Long jwtExpiration;
+    Long jwtExpiration;
 
     @Value("${jwt.refresh.expiration}")
-    private Long refreshJwtExpiration;
+    Long refreshJwtExpiration;
 
-    private static final String JWT_PREFIX = "token:jwt:";
-    private static final String REFRESH_PREFIX = "token:refresh:";
-    private static final String REVOKED_SUFFIX = ":revoked";
+    static final String JWT_PREFIX = "token:jwt:";
+    static final String REFRESH_PREFIX = "token:refresh:";
+    static final String REVOKED_SUFFIX = ":revoked";
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    final RedisTemplate<String, Object> redisTemplate;
 
     public void saveToken(UUID userId, String token, TokenType tokenType) {
         String key = getTokenKey(userId, token, tokenType);

@@ -9,7 +9,9 @@ import com.raul.chat.dtos.chat.NewGroupChatDto;
 import com.raul.chat.models.user.User;
 import com.raul.chat.services.chat.ChatService;
 import jakarta.validation.Valid;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -22,9 +24,10 @@ import java.util.UUID;
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
 @Validated
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ChatRestController {
 
-    private final ChatService chatService;
+    ChatService chatService;
 
     @GetMapping("/rooms/{chatRoomId}/messages")
     public ResponseEntity<List<MessageDto>> getMessages(

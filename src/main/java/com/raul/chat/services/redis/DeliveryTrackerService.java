@@ -1,7 +1,9 @@
 package com.raul.chat.services.redis;
 
 import com.raul.chat.dtos.chat.MessageDto;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -13,9 +15,10 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DeliveryTrackerService {
-    private static final String PREFIX = "message:delivery:";
-    private static final long TTL_SECONDS = 5;
+    static String PREFIX = "message:delivery:";
+    static long TTL_SECONDS = 5;
 
     private final RedisTemplate<String, Object> redisTemplate;
 

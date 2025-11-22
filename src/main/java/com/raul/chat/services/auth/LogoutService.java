@@ -6,7 +6,9 @@ import com.raul.chat.services.chat.PresenceService;
 import com.raul.chat.services.redis.JwtTokenTrackService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
@@ -16,12 +18,13 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class LogoutService implements LogoutHandler {
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
-    private final JwtService jwtService;
-    private final PresenceService presenceService;
-    private final JwtTokenTrackService jwtTokenTrackService;
+    SimpMessagingTemplate simpMessagingTemplate;
+    JwtService jwtService;
+    PresenceService presenceService;
+    JwtTokenTrackService jwtTokenTrackService;
 
     @Override
     public void logout(HttpServletRequest request,

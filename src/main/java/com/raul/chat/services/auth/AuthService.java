@@ -16,8 +16,11 @@ import com.raul.chat.models.user.TokenType;
 import com.raul.chat.models.user.User;
 import com.raul.chat.repositories.auth.UserRepository;
 import com.raul.chat.services.utils.UserUtils;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -34,18 +37,21 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthService {
-    private final String URL_DOMAIN = "http://localhost:8080";
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
-    private final JwtService jwtService;
-    private final EmailSenderService emailSenderService;
-    private final TokenService tokenService;
-    private final OtpService otpService;
-    private final SimpMessagingTemplate messagingTemplate;
-    private final UserUtils userUtils;
+    @Value("${url.domain}")
+    String URL_DOMAIN;
+
+    final UserRepository userRepository;
+    final PasswordEncoder passwordEncoder;
+    final AuthenticationManager authenticationManager;
+    final JwtService jwtService;
+    final EmailSenderService emailSenderService;
+    final TokenService tokenService;
+    final OtpService otpService;
+    final SimpMessagingTemplate messagingTemplate;
+    final UserUtils userUtils;
 
     @Transactional
     public MessageResponseDto register(RegisterRequestDto request) {

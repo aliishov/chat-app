@@ -5,7 +5,9 @@ import com.raul.chat.dtos.auth.UserDto;
 import com.raul.chat.models.user.Role;
 import com.raul.chat.models.user.Status;
 import com.raul.chat.models.user.User;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,9 +18,10 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserUtils {
 
-    private final PasswordEncoder passwordEncoder;
+    PasswordEncoder passwordEncoder;
 
     public User convertToNewUser(RegisterRequestDto request) {
         return User.builder()

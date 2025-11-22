@@ -9,6 +9,8 @@ import com.raul.chat.repositories.chat.MessageRecipientRepository;
 import com.raul.chat.services.chat.NotificationService;
 import com.raul.chat.services.utils.UserUtils;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -22,13 +24,14 @@ import java.util.UUID;
 
 @Service
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RedisKeyExpirationListener extends KeyExpirationEventMessageListener {
 
-    private final NotificationService notificationService;
-    private final MessageRecipientRepository messageRecipientRepository;
-    private final UserRepository userRepository;
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final UserUtils userUtils;
+    NotificationService notificationService;
+    MessageRecipientRepository messageRecipientRepository;
+    UserRepository userRepository;
+    RedisTemplate<String, Object> redisTemplate;
+    UserUtils userUtils;
 
 
     public RedisKeyExpirationListener(RedisMessageListenerContainer listenerContainer,

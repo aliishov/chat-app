@@ -4,7 +4,9 @@ import com.raul.chat.dtos.auth.UserDto;
 import com.raul.chat.models.user.Status;
 import com.raul.chat.repositories.auth.UserRepository;
 import com.raul.chat.services.utils.UserUtils;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,14 +20,15 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PresenceService {
-    private static final String STATUS_KEY_PREFIX = "user:status:";
-    private static final String ONLINE_USERS_KEY = "online:users";
-    private static final long TTL_SECONDS = 60;
+    static String STATUS_KEY_PREFIX = "user:status:";
+    static String ONLINE_USERS_KEY = "online:users";
+    static long TTL_SECONDS = 60;
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final UserRepository userRepository;
-    private final UserUtils userUtils;
+    RedisTemplate<String, Object> redisTemplate;
+    UserRepository userRepository;
+    UserUtils userUtils;
 
     public void updateUserStatus(UUID userId, Status status) {
         String key = STATUS_KEY_PREFIX + userId;

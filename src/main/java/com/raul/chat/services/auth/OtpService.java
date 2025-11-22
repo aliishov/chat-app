@@ -2,7 +2,9 @@ package com.raul.chat.services.auth;
 
 import com.raul.chat.models.otp.OTPCode;
 import com.raul.chat.repositories.auth.OtpRepository;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -13,10 +15,11 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OtpService {
 
-    private static final SecureRandom secureRandom = new SecureRandom();
-    private final OtpRepository otpRepository;
+    static SecureRandom secureRandom = new SecureRandom();
+    OtpRepository otpRepository;
 
     public String generateOtp(UUID userId) {
         int number = secureRandom.nextInt(1_000_000);

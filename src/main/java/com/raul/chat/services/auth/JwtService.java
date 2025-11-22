@@ -7,7 +7,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,18 +26,19 @@ import java.util.function.Function;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class JwtService {
 
     @Value("${jwt.expiration}")
-    private Long jwtExpiration;
+    Long jwtExpiration;
 
     @Value("${jwt.refresh.expiration}")
-    private Long refreshJwtExpiration;
+    Long refreshJwtExpiration;
 
     @Value("${jwt.secret}")
-    private String secretKey;
+    String secretKey;
 
-    private final JwtTokenTrackService jwtTokenTrackService;
+    final JwtTokenTrackService jwtTokenTrackService;
 
     public String generateToken(User user) {
         return generateToken(new HashMap<>(), user);

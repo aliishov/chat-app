@@ -7,7 +7,9 @@ import com.raul.chat.repositories.auth.UserDevicesRepository;
 import com.raul.chat.repositories.auth.UserRepository;
 import com.raul.chat.services.utils.UserUtils;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -19,11 +21,12 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserDevicesService {
 
-    private final UserDevicesRepository userDevicesRepository;
-    private final UserRepository userRepository;
-    private final UserUtils userUtils;
+    UserDevicesRepository userDevicesRepository;
+    UserRepository userRepository;
+    UserUtils userUtils;
 
     @Async
     public void saveDevice(String deviceToken, DeviceType deviceType, UUID userId, boolean isOnline) {

@@ -9,7 +9,9 @@ import com.raul.chat.services.auth.JwtService;
 import com.raul.chat.services.auth.UserDevicesService;
 import com.raul.chat.services.chat.PresenceService;
 import jakarta.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,12 +42,13 @@ import static org.springframework.util.MimeTypeUtils.APPLICATION_JSON;
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final JwtService jwtService;
-    private final PresenceService presenceService;
-    private final UserDetailsService userDetailsService;
-    private final UserDevicesService userDevicesService;
+    JwtService jwtService;
+    PresenceService presenceService;
+    UserDetailsService userDetailsService;
+    UserDevicesService userDevicesService;
 
     @Bean
     public TaskScheduler taskScheduler() {

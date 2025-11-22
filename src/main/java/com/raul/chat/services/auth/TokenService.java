@@ -4,7 +4,9 @@ import com.raul.chat.models.user.Token;
 import com.raul.chat.models.user.TokenType;
 import com.raul.chat.repositories.auth.TokenRepository;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +16,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class TokenService {
 
-    private final TokenRepository tokenRepository;
+    TokenRepository tokenRepository;
 
     public String generateToken(UUID userId, TokenType tokenType) {
         log.info("Generating new token with type {}", tokenType.toString());

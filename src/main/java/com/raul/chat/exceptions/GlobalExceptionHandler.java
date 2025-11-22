@@ -14,7 +14,6 @@ import java.util.Map;
 
 import static org.springframework.http.HttpStatus.*;
 
-// TODO integrate Sentry
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)

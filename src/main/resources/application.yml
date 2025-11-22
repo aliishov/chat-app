@@ -49,3 +49,7 @@ logging:
     org.springframework.messaging: DEBUG
     org.springframework.data.redis: DEBUG
     io.lettuce.core: DEBUG
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+
+url:
+  domain: http://localhost:8080

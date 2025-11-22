@@ -6,7 +6,9 @@ import com.raul.chat.dtos.chat.NotificationDto;
 import com.raul.chat.models.chat.MessageRecipient;
 import com.raul.chat.models.user.User;
 import com.raul.chat.services.utils.UserUtils;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -18,13 +20,14 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class NotificationService {
-    private static final String NOTIFICATION_TOPIC = "/user/{id}/queue/notifications";
+    static String NOTIFICATION_TOPIC = "/user/{id}/queue/notifications";
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final PresenceService presenceService;
-    private final PushNotificationService pushNotificationService;
-    private final UserUtils userUtils;
+    SimpMessagingTemplate messagingTemplate;
+    PresenceService presenceService;
+    PushNotificationService pushNotificationService;
+    UserUtils userUtils;
 
     @Async
     public void sendNotification(User sender, MessageDto messageDto, List<MessageRecipient> messageRecipients) {
