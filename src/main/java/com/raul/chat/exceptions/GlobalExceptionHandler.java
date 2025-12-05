@@ -69,6 +69,5 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         errors.put("message", e.getMessage());
         return ResponseEntity.status(UNAUTHORIZED).body(new ErrorResponse(errors));
-        // TODO Forbidden or Unauthorized
     }
 }

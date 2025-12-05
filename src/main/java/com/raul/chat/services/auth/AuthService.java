@@ -123,8 +123,6 @@ public class AuthService {
 
         user.setIsAuthenticated(true);
 
-        // TODO Optimize update & save queries
-
         userRepository.save(user);
 
         log.info("Email confirmed successfully for user with email: {}", user.getEmail());
